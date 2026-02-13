@@ -1,37 +1,37 @@
-FROM php:8.4-fpm
+FROM php:8.1-fpm
 
-# Directorio de trabajo
-WORKDIR /var/www
-
-# Instalar dependencias del sistema
+# Instalar dependencias del sistema y extensiones PHP necesarias
 RUN apt-get update && apt-get install -y \
     git \
-    unzip \
-    libzip-dev \
-    zip \
     curl \
+    zip \
+    unzip \
+    libpng-dev \
+    libjpeg-dev \
+    libfreetype6-dev \
     libonig-dev \
-    libxml2-dev \
-    && docker-php-ext-install pdo pdo_mysql mbstring bcmath xml zip \
-    && apt-get clean \
-    && rm -rf /var/lib/apt/lists/*
+    libzip-dev \
+ && docker-php-ext-configure gd --with-freetype --with-jpeg \
+ && docker-php-ext-install pdo_mysql mbstring exif pcntl bcmath gd zip
 
 # Instalar Composer
-COPY --from=composer:latest /usr/bin/composer /usr/bin/composer
+COPY --from=composer:2 /usr/bin/composer /usr/bin/composer
 
-# Copiar archivos del proyecto
-COPY ./src/laravel /var/www
+WORKDIR /var/www/html
 
-# Establecer permisos correctos
-RUN chown -R www-data:www-data /var/www \
-    && chmod -R 755 /var/www/storage \
-    && chmod -R 755 /var/www/bootstrap/cache
+# Copiar primero solo composer.json y composer.lock para aprovechar cache
+COPY composer.json composer.lock ./
 
-# Instalar dependencias de Composer
-RUN composer install --no-dev --optimize-autoloader --no-interaction
+# Instalar dependencias de PHP
+RUN composer install --no-interaction --prefer-dist --optimize-autoloader || true
 
-# Exponer puerto
-EXPOSE 9000
+# Copiar el resto del proyecto
+COPY . .
 
-# Comando por defecto
+# Crear carpetas necesarias y permisos
+RUN mkdir -p storage bootstrap/cache \
+ && chown -R www-data:www-data /var/www/html \
+ && chmod -R 775 storage bootstrap/cache
+
+EXPOSE 8000
 CMD ["php-fpm"]
