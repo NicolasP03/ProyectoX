@@ -16,7 +16,7 @@ services:
 
   webserver:
     image: nginx:latest
-    container_name: nginx_server
+    container_name: web_server
     ports:
       - "8080:80"
     volumes:
